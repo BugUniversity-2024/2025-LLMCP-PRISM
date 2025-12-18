@@ -1,15 +1,17 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /* Tailwind CSS v4 Theme Configuration */
 @theme {
-  /* Custom color palette for PRISM */
-  --color-primary: #646cff;
-  --color-primary-dark: #535bf2;
-
-  /* Custom spacing, fonts, etc. can be added here */
+  /* PRISM 品牌色 */
+  --color-primary-purple: #9333ea;
+  --color-primary-blue: #3b82f6;
+  --color-primary-pink: #ec4899;
+  --color-primary-indigo: #6366f1;
 }
 
-/* Base styles */
+/* Base Reset */
 * {
   margin: 0;
   padding: 0;
@@ -17,16 +19,44 @@
 }
 
 body {
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom utility classes for PRISM */
+/* Custom Utilities */
 .container-prism {
   max-width: 1440px;
   margin: 0 auto;
   padding: 0 2rem;
+}
+
+/* 渐变文字效果 */
+.text-gradient-purple-blue {
+  background: linear-gradient(135deg, #9333ea 0%, #3b82f6 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* 自定义滚动条 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #9333ea, #3b82f6);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #7e22ce, #2563eb);
 }
 
