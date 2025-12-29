@@ -1,46 +1,54 @@
 <script setup lang="ts">
 import StepIndicator from '@/components/StepIndicator.vue'
-import WorkPanel from '@/components/WorkPanel.vue'
+import InputPanel from '@/components/InputPanel.vue'
+import VersionList from '@/components/VersionList.vue'
 import ImageViewer from '@/components/ImageViewer.vue'
 import PromptDetails from '@/components/PromptDetails.vue'
+import Lightbox from '@/components/Lightbox.vue'
+import { useSessionStore } from '@/stores/session'
+import { ref } from 'vue'
+
+const sessionStore = useSessionStore()
+const showLightbox = ref(false)
+
+function openLightbox() {
+  if (sessionStore.currentVersion) {
+    showLightbox.value = true
+  }
+}
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-50">
-    <!-- Header -->
-    <header class="bg-white border-b border-slate-200">
-      <div class="container-prism py-6">
-        <h1 class="text-2xl font-bold text-slate-900">PRISM</h1>
-        <p class="text-sm text-slate-600 mt-1">Prompt Refinement & Image Synthesis Manager</p>
+  <div class="min-h-screen" style="background: var(--gradient-subtle)">
+    <!-- Header: 简洁一行 -->
+    <header class="h-14 flex items-center justify-between px-6 border-b border-slate-200/60 bg-white/80 backdrop-blur-sm sticky top-0 z-40">
+      <div class="flex items-center gap-3">
+        <h1 class="text-xl font-bold text-gradient">PRISM</h1>
+        <span class="text-xs text-slate-400 hidden sm:inline">Prompt Refinement & Image Synthesis</span>
       </div>
+      <StepIndicator />
     </header>
 
-    <!-- 步骤指示器 -->
-    <div class="bg-white border-b border-slate-200">
-      <div class="container-prism py-4">
-        <StepIndicator />
-      </div>
-    </div>
+    <!-- 三栏主体 -->
+    <main class="grid grid-cols-12 gap-4 p-4 h-[calc(100vh-56px)]">
+      <!-- 左侧：输入区 -->
+      <aside class="col-span-12 lg:col-span-3 space-y-4 overflow-y-auto scrollbar-hide animate-slide-up">
+        <InputPanel />
+        <VersionList v-if="sessionStore.hasVersions" />
+      </aside>
 
-    <!-- 主内容区：左右分栏 -->
-    <main class="container-prism py-6">
-      <div class="grid grid-cols-12 gap-6 min-h-[calc(100vh-240px)]">
-        <!-- 左侧工作区 (35%) -->
-        <div class="col-span-12 lg:col-span-4 space-y-4 overflow-y-auto">
-          <WorkPanel />
-        </div>
+      <!-- 中间：图片展示区 -->
+      <section class="col-span-12 lg:col-span-6 animate-fade-in" style="animation-delay: 50ms">
+        <ImageViewer @open-lightbox="openLightbox" />
+      </section>
 
-        <!-- 右侧结果区 (65%) -->
-        <div class="col-span-12 lg:col-span-8 space-y-4 overflow-y-auto">
-          <ImageViewer />
-          <PromptDetails />
-        </div>
-      </div>
+      <!-- 右侧：详情区 -->
+      <aside class="col-span-12 lg:col-span-3 overflow-y-auto scrollbar-hide animate-slide-up" style="animation-delay: 100ms">
+        <PromptDetails />
+      </aside>
     </main>
 
-    <!-- Footer -->
-    <footer class="py-6 text-center text-xs text-slate-500 border-t border-slate-200 bg-white">
-      <p class="font-medium">PRISM - Powered by GPT-4o & SeeDream</p>
-    </footer>
+    <!-- Lightbox 全屏查看 -->
+    <Lightbox v-model:visible="showLightbox" />
   </div>
 </template>

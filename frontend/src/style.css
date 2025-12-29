@@ -2,10 +2,41 @@
 
 /* Tailwind CSS v4 Theme Configuration */
 @theme {
-  /* PRISM 品牌色（蓝色系） */
-  --color-primary: #3b82f6;
-  --color-primary-dark: #2563eb;
-  --color-primary-light: #60a5fa;
+  /* 青-蓝渐变主色 */
+  --color-primary: #0ea5e9;
+  --color-primary-dark: #0284c7;
+  --color-primary-light: #38bdf8;
+  --color-accent: #06b6d4;
+  --color-accent-light: #22d3ee;
+
+  /* 语义色 */
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+
+  /* 中性色 */
+  --color-bg: #fafbfc;
+  --color-surface: #ffffff;
+  --color-border: #e2e8f0;
+  --color-border-light: #f1f5f9;
+
+  /* 阴影层级 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.05);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --shadow-glow: 0 0 20px rgba(14, 165, 233, 0.15);
+
+  /* 动画时长 */
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
+}
+
+/* 渐变预设 */
+:root {
+  --gradient-primary: linear-gradient(135deg, #06b6d4 0%, #0ea5e9 50%, #3b82f6 100%);
+  --gradient-subtle: linear-gradient(135deg, #f0fdfa 0%, #f0f9ff 100%);
+  --gradient-text: linear-gradient(135deg, #06b6d4 0%, #0ea5e9 100%);
 }
 
 body {
@@ -15,11 +46,89 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom Utilities */
-.container-prism {
-  max-width: 1440px;
-  margin: 0 auto;
-  padding: 0 2rem;
+/* 入场动画 */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(14, 165, 233, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(14, 165, 233, 0); }
+}
+
+/* 动画工具类 */
+.animate-fade-in { animation: fade-in var(--duration-normal) ease-out; }
+.animate-slide-up { animation: slide-up var(--duration-normal) ease-out; }
+.animate-scale-in { animation: scale-in var(--duration-fast) ease-out; }
+.animate-shimmer {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+.animate-pulse-glow { animation: pulse-glow 2s infinite; }
+
+/* 卡片样式 */
+.card {
+  background: white;
+  border-radius: 16px;
+  box-shadow: var(--shadow-md);
+}
+
+/* 渐变按钮 */
+.btn-gradient {
+  background: var(--gradient-primary);
+  color: white;
+  font-weight: 500;
+  border-radius: 10px;
+  box-shadow: var(--shadow-sm), 0 2px 8px rgba(14, 165, 233, 0.25);
+  transition: all var(--duration-fast) ease;
+}
+
+.btn-gradient:hover {
+  box-shadow: var(--shadow-md), 0 4px 12px rgba(14, 165, 233, 0.35);
+  transform: translateY(-1px);
+}
+
+.btn-gradient:active {
+  transform: translateY(0);
+}
+
+.btn-gradient:disabled {
+  background: #cbd5e1;
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
+}
+
+/* 输入框聚焦效果 */
+.input-glow:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.15);
+}
+
+/* 渐变文字 */
+.text-gradient {
+  background: var(--gradient-text);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 /* 自定义滚动条 */
@@ -29,7 +138,7 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f5f9;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
@@ -39,6 +148,15 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
+}
+
+/* 隐藏滚动条但保持滚动功能 */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 
 

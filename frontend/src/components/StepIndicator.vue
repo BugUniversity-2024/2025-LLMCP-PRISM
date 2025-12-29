@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useSessionStore } from '@/stores/session'
-import { ChevronRightIcon } from '@heroicons/vue/24/outline'
+import { CheckIcon } from '@heroicons/vue/24/solid'
 
 const sessionStore = useSessionStore()
 
@@ -12,43 +12,54 @@ const currentStep = computed(() => {
 })
 
 const steps = [
-  { id: 1, label: '输入创意' },
-  { id: 2, label: '生成图片' },
-  { id: 3, label: '优化反馈' }
+  { id: 1, label: '输入' },
+  { id: 2, label: '生成' },
+  { id: 3, label: '优化' }
 ]
 </script>
 
 <template>
-  <div class="flex items-center justify-center gap-3">
-    <div
-      v-for="(step, index) in steps"
-      :key="step.id"
-      class="flex items-center gap-3"
-    >
-      <div class="flex items-center gap-2">
+  <div class="flex items-center gap-1">
+    <template v-for="(step, index) in steps" :key="step.id">
+      <!-- 步骤指示 -->
+      <div
+        :class="[
+          'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all duration-200',
+          currentStep > step.id
+            ? 'bg-gradient-to-r from-cyan-500 to-sky-500 text-white'
+            : currentStep === step.id
+              ? 'bg-sky-100 text-sky-700'
+              : 'bg-slate-100 text-slate-400'
+        ]"
+      >
         <span
+          v-if="currentStep > step.id"
+          class="w-4 h-4 flex items-center justify-center"
+        >
+          <CheckIcon class="w-3 h-3" />
+        </span>
+        <span
+          v-else
           :class="[
-            'flex items-center justify-center w-7 h-7 rounded-full text-sm font-medium transition-colors',
-            currentStep >= step.id
-              ? 'bg-blue-600 text-white'
-              : 'bg-slate-200 text-slate-500'
+            'w-4 h-4 flex items-center justify-center rounded-full text-[10px] font-bold',
+            currentStep === step.id
+              ? 'bg-sky-500 text-white'
+              : 'bg-slate-300 text-white'
           ]"
         >
           {{ step.id }}
         </span>
-        <span
-          :class="[
-            'text-sm font-medium transition-colors',
-            currentStep >= step.id ? 'text-slate-900' : 'text-slate-400'
-          ]"
-        >
-          {{ step.label }}
-        </span>
+        <span class="hidden sm:inline">{{ step.label }}</span>
       </div>
-      <ChevronRightIcon
+
+      <!-- 连接线 -->
+      <div
         v-if="index < steps.length - 1"
-        class="w-4 h-4 text-slate-300"
+        :class="[
+          'w-6 h-0.5 rounded-full transition-colors duration-200',
+          currentStep > step.id ? 'bg-sky-400' : 'bg-slate-200'
+        ]"
       />
-    </div>
+    </template>
   </div>
 </template>
