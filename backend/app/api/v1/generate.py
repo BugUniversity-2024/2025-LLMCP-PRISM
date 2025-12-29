@@ -1,87 +1,84 @@
 """
-生成图片 API (Mock 版本)
+生成图片 API（集成数据库版本）
+阶段 1: Mock 服务
+阶段 2: 真实 API
 """
-from fastapi import APIRouter
-from datetime import datetime
-import uuid
-import random
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session as SQLSession
 
 from app.schemas.requests import GenerateRequest
 from app.schemas.responses import GenerateResponse
+from app.core.database import get_db
+from app.services.prompt_engine import PromptEngine
+from app.services.image_adapter import ImageAdapter
+from app.services.session_manager import SessionManager
 
 router = APIRouter()
 
-# Mock 数据
-MOCK_SCHEMAS = [
-    {
-        "subject": ["一只猫"],
-        "appearance": ["橘色毛发", "蓝色眼睛", "蓬松尾巴"],
-        "style": ["半写实", "动漫风格", "柔和线条"],
-        "composition": ["特写", "浅景深", "正面视角"],
-        "lighting": ["柔和侧光", "暖色调", "轮廓高光"],
-        "background": ["窗边", "清晨", "朦胧背景"],
-        "quality": ["高清", "细节丰富", "16:9"],
-        "negative": ["模糊", "变形", "多余肢体"],
-        "weights": {"style": 1.0, "realism": 0.7, "lighting": 0.8}
-    },
-    {
-        "subject": ["一位角色坐在站台边缘"],
-        "appearance": ["动漫线条", "柔和上色", "沉静表情"],
-        "style": ["电影感", "半写实背景", "动漫角色"],
-        "composition": ["平视", "中距离", "对面视角"],
-        "lighting": ["清晨淡金蓝混合", "体积雾", "柔光"],
-        "background": ["地铁站台", "轻微雾气", "轨道延伸"],
-        "quality": ["16:9", "高清", "浅景深"],
-        "negative": ["拥挤", "科幻UI", "夸张比例"],
-        "weights": {"style": 1.0, "realism": 0.6}
-    }
-]
-
 
 @router.post("/generate", response_model=GenerateResponse)
-async def generate(request: GenerateRequest):
+async def generate(
+    request: GenerateRequest,
+    db: SQLSession = Depends(get_db)
+):
     """
-    生成图片接口（Mock 版本）
+    生成图片接口
 
-    返回随机的 Schema 和图片
+    流程：
+    1. 调用 PromptEngine 生成 Schema（阶段1用Mock）
+    2. 调用 ImageAdapter 生成图片（阶段1下载picsum图片）
+    3. 存储到数据库
+    4. 返回结果
     """
-    # 生成或使用现有 session_id
-    session_id = request.session_id or str(uuid.uuid4())
+    try:
+        # 初始化服务（阶段1都是Mock）
+        prompt_engine = PromptEngine(use_real_api=False)
+        image_adapter = ImageAdapter(use_real_api=False)
+        session_manager = SessionManager(db)
 
-    # 随机选择一个 Mock Schema
-    schema = random.choice(MOCK_SCHEMAS)
+        # 1. 生成 Schema
+        result = prompt_engine.generate_schema(request.user_input)
+        schema = result["schema"]
+        prompt = result["prompt"]
 
-    # 生成假的 Prompt
-    prompt = f"""画面比例：16:9，{', '.join(schema['quality'])}
-风格要求：{', '.join(schema['style'])}
+        # 2. 创建或获取 Session
+        if request.session_id:
+            session = session_manager.get_session(request.session_id)
+            if not session:
+                raise HTTPException(status_code=404, detail="会话不存在")
+        else:
+            session = session_manager.create_session()
 
-【主体场景与构图】
-主体：{', '.join(schema['subject'])}
-构图：{', '.join(schema['composition'])}
+        # 3. 生成图片
+        image_result = await image_adapter.generate_image(
+            prompt=prompt,
+            session_id=session.id,
+            version=1
+        )
 
-【外观细节】
-{', '.join(schema['appearance'])}
+        # 4. 存储版本到数据库
+        version = session_manager.create_version(
+            session_id=session.id,
+            schema=schema,
+            prompt=prompt,
+            image_url=image_result["image_url"],
+            image_path=image_result["image_path"],
+            user_input=request.user_input
+        )
 
-【光照与氛围】
-{', '.join(schema['lighting'])}
+        # 5. 返回响应
+        return GenerateResponse(
+            session_id=session.id,
+            version=version.version_number,
+            schema=schema,
+            prompt=prompt,
+            image_url=image_result["image_url"],
+            created_at=version.created_at.isoformat()
+        )
 
-【背景】
-{', '.join(schema['background'])}
-
-【负向提示（避免）】
-{', '.join(schema['negative'])}
-"""
-
-    # 使用 picsum.photos 提供随机图片
-    # 添加随机参数确保每次都是不同的图片
-    random_seed = random.randint(1, 1000)
-    image_url = f"https://picsum.photos/seed/{random_seed}/1920/1080"
-
-    return GenerateResponse(
-        session_id=session_id,
-        version=1,
-        schema=schema,
-        prompt=prompt,
-        image_url=image_url,
-        created_at=datetime.now().isoformat()
-    )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"内部错误: {str(e)}")

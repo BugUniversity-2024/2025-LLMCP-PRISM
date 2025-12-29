@@ -1,80 +1,98 @@
 """
-反馈优化 API (Mock 版本)
+反馈优化 API（集成数据库版本）
+阶段 1: Mock 服务
+阶段 2: 真实 API
 """
-from fastapi import APIRouter
-from datetime import datetime
-import random
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session as SQLSession
 
 from app.schemas.requests import FeedbackRequest
 from app.schemas.responses import FeedbackResponse
+from app.core.database import get_db
+from app.services.feedback_engine import FeedbackEngine, ConflictError
+from app.services.image_adapter import ImageAdapter
+from app.services.session_manager import SessionManager
 
 router = APIRouter()
 
 
 @router.post("/feedback", response_model=FeedbackResponse)
-async def feedback(request: FeedbackRequest):
+async def feedback(
+    request: FeedbackRequest,
+    db: SQLSession = Depends(get_db)
+):
     """
-    反馈优化接口（Mock 版本）
+    反馈优化接口
 
-    根据反馈返回迭代后的 Schema 和图片
+    流程：
+    1. 获取当前版本的 Schema
+    2. 调用 FeedbackEngine 生成 Diff（阶段1用Mock）
+    3. 调用 ImageAdapter 生成新图片（阶段1下载picsum图片）
+    4. 存储新版本到数据库
+    5. 返回结果
     """
-    # Mock Schema (优化后的)
-    optimized_schema = {
-        "subject": ["一只猫"],
-        "appearance": ["橘色毛发", "蓝色眼睛", "蓬松尾巴"],
-        "style": ["半写实", "动漫风格", "柔和线条"],
-        "composition": ["特写", "浅景深", "正面视角"],
-        "lighting": ["柔和侧光", "暖色调", "轮廓高光", "更亮的环境光", "增加高光"],  # 添加了优化
-        "background": ["窗边", "清晨", "简洁背景"],  # 简化了背景
-        "quality": ["高清", "细节丰富", "16:9"],
-        "negative": ["模糊", "变形", "多余肢体"],
-        "weights": {"style": 1.0, "realism": 0.7, "lighting": 1.1}  # 提升了 lighting 权重
-    }
+    try:
+        # 初始化服务（阶段1都是Mock）
+        feedback_engine = FeedbackEngine(use_real_api=False)
+        image_adapter = ImageAdapter(use_real_api=False)
+        session_manager = SessionManager(db)
 
-    # Mock Diff
-    mock_diff = {
-        "operations": [
-            {"action": "add", "field": "lighting", "values": ["更亮的环境光", "增加高光"]},
-            {"action": "adjust", "field": "weights.lighting", "delta": 0.3},
-            {"action": "replace", "field": "background", "values": ["窗边", "清晨", "简洁背景"]}
-        ],
-        "reasoning": f"根据用户反馈「{request.feedback}」，优化了光照和背景描述"
-    }
+        # 1. 获取当前版本
+        current_version = session_manager.get_version(
+            session_id=request.session_id,
+            version_number=request.version
+        )
+        if not current_version:
+            raise HTTPException(status_code=404, detail="版本不存在")
 
-    # 生成优化后的 Prompt
-    prompt = f"""画面比例：16:9，{', '.join(optimized_schema['quality'])}
-风格要求：{', '.join(optimized_schema['style'])}
+        # 2. 分析反馈并生成 Diff
+        result = feedback_engine.analyze_feedback(
+            feedback=request.feedback,
+            current_schema=current_version.schema
+        )
 
-【主体场景与构图】
-主体：{', '.join(optimized_schema['subject'])}
-构图：{', '.join(optimized_schema['composition'])}
+        diff = result["diff"]
+        new_schema = result["new_schema"]
+        prompt = result["prompt"]
 
-【外观细节】
-{', '.join(optimized_schema['appearance'])}
+        # 3. 生成新图片（传入参考图片路径）
+        next_version_number = current_version.version_number + 1
+        image_result = await image_adapter.generate_image(
+            prompt=prompt,
+            session_id=request.session_id,
+            version=next_version_number,
+            reference_image_path=current_version.image_path
+        )
 
-【光照与氛围】（已优化）
-{', '.join(optimized_schema['lighting'])}
+        # 4. 存储新版本
+        new_version = session_manager.create_version(
+            session_id=request.session_id,
+            schema=new_schema,
+            prompt=prompt,
+            image_url=image_result["image_url"],
+            image_path=image_result["image_path"],
+            user_feedback=request.feedback,
+            diff=diff,
+            parent_version_id=current_version.id
+        )
 
-【背景】（已优化）
-{', '.join(optimized_schema['background'])}
+        # 5. 返回响应
+        return FeedbackResponse(
+            session_id=request.session_id,
+            version=new_version.version_number,
+            parent_version=request.version,
+            diff=diff,
+            schema=new_schema,
+            prompt=prompt,
+            image_url=image_result["image_url"],
+            created_at=new_version.created_at.isoformat()
+        )
 
-【负向提示（避免）】
-{', '.join(optimized_schema['negative'])}
-
-优化说明：{mock_diff['reasoning']}
-"""
-
-    # 使用不同的随机图片（模拟优化后的效果）
-    random_seed = random.randint(1001, 2000)
-    image_url = f"https://picsum.photos/seed/{random_seed}/1920/1080"
-
-    return FeedbackResponse(
-        session_id=request.session_id,
-        version=request.version + 1,
-        parent_version=request.version,
-        diff=mock_diff,
-        schema=optimized_schema,
-        prompt=prompt,
-        image_url=image_url,
-        created_at=datetime.now().isoformat()
-    )
+    except ConflictError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"内部错误: {str(e)}")

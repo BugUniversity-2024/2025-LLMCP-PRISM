@@ -9,18 +9,20 @@ class Settings(BaseSettings):
     """应用配置"""
 
     # 数据库配置
-    database_url: str = "postgresql://prism:prism_dev_password@localhost:5432/prism"
+    database_url: str = "sqlite:///./prism.db"
 
     # Redis 配置
     redis_url: str = "redis://localhost:6379/0"
 
     # OpenAI API 配置
     openai_api_key: str
+    openai_api_base: str = "https://api.openai.com/v1"
     openai_model: str = "gpt-4o"
 
-    # SeeDream API 配置
-    seedream_api_key: str
-    seedream_api_url: str = "https://api.seedream.com/v1"
+    # Gemini API 配置
+    gemini_api_key: str
+    gemini_api_base: str = ""  # 可选，留空则使用默认
+    gemini_model: str = "gemini-2.0-flash-exp"
 
     # 服务配置
     app_env: str = "development"
