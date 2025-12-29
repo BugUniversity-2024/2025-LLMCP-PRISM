@@ -5,6 +5,7 @@ from typing import List, Optional, Dict, Any
 from uuid import UUID, uuid4
 from sqlalchemy.orm import Session as SQLSession
 from sqlalchemy import desc
+from pathlib import Path
 from app.models import Session, Version
 
 
@@ -157,3 +158,63 @@ class SessionManager:
             return {}
 
         return build_tree(root)
+
+    def get_all_sessions(
+        self,
+        skip: int = 0,
+        limit: int = 20
+    ) -> List[Session]:
+        """获取所有项目列表（按更新时间倒序）"""
+        return (
+            self.db.query(Session)
+            .order_by(desc(Session.updated_at))
+            .offset(skip)
+            .limit(limit)
+            .all()
+        )
+
+    def count_sessions(self) -> int:
+        """统计项目总数"""
+        return self.db.query(Session).count()
+
+    def update_session(
+        self,
+        session_id: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None
+    ) -> Session:
+        """更新项目元数据"""
+        session = self.get_session(session_id)
+        if not session:
+            raise ValueError("项目不存在")
+
+        if name is not None:
+            session.name = name
+        if description is not None:
+            session.description = description
+
+        self.db.commit()
+        self.db.refresh(session)
+        return session
+
+    def delete_session(self, session_id: str) -> bool:
+        """删除项目（级联删除版本和图片文件）"""
+        session = self.get_session(session_id)
+        if not session:
+            return False
+
+        # 删除所有关联图片文件
+        for version in session.versions:
+            try:
+                if version.image_path:
+                    image_file = Path(version.image_path)
+                    if image_file.exists():
+                        image_file.unlink()
+            except Exception as e:
+                print(f"删除图片失败: {e}")
+
+        # 删除会话（级联删除版本记录）
+        self.db.delete(session)
+        self.db.commit()
+        return True
+

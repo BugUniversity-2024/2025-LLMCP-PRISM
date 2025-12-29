@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import StepIndicator from '@/components/StepIndicator.vue'
 import InputPanel from '@/components/InputPanel.vue'
+import ProjectList from '@/components/ProjectList.vue'
 import VersionList from '@/components/VersionList.vue'
 import ImageViewer from '@/components/ImageViewer.vue'
 import PromptDetails from '@/components/PromptDetails.vue'
@@ -16,6 +18,15 @@ function openLightbox() {
     showLightbox.value = true
   }
 }
+
+// 应用启动时恢复状态
+onMounted(async () => {
+  // 恢复上次的项目
+  await sessionStore.hydrate()
+
+  // 加载项目列表
+  await sessionStore.fetchSessions()
+})
 </script>
 
 <template>
@@ -33,6 +44,7 @@ function openLightbox() {
     <main class="grid grid-cols-12 gap-4 p-4 h-[calc(100vh-56px)]">
       <!-- 左侧：输入区 -->
       <aside class="col-span-12 lg:col-span-3 space-y-4 overflow-y-auto scrollbar-hide animate-slide-up">
+        <ProjectList />
         <InputPanel />
         <VersionList v-if="sessionStore.hasVersions" />
       </aside>

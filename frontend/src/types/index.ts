@@ -58,9 +58,22 @@ export interface Version {
 // 会话信息
 export interface Session {
   id: string
+  name?: string
+  description?: string
   created_at: string
   updated_at: string
   versions: Version[]
+}
+
+// 会话列表项（用于项目列表）
+export interface SessionListItem {
+  id: string
+  name: string
+  description?: string
+  thumbnail_url?: string
+  version_count: number
+  created_at: string
+  updated_at: string
 }
 
 // API 请求/响应类型

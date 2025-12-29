@@ -16,6 +16,11 @@ class Session(Base):
     __tablename__ = "sessions"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
+
+    # 项目元数据
+    name = Column(String(255), nullable=True, default="未命名项目")
+    description = Column(Text, nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -23,7 +28,7 @@ class Session(Base):
     versions = relationship("Version", back_populates="session", cascade="all, delete-orphan", order_by="Version.version_number")
 
     def __repr__(self):
-        return f"<Session(id={self.id})>"
+        return f"<Session(id={self.id}, name={self.name})>"
 
 
 class Version(Base):

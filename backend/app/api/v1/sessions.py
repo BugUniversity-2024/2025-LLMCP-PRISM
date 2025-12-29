@@ -15,6 +15,23 @@ router = APIRouter()
 
 
 # 响应模型
+class SessionListItem(BaseModel):
+    id: str
+    name: str
+    description: Optional[str]
+    thumbnail_url: Optional[str]
+    version_count: int
+    created_at: str
+    updated_at: str
+
+class SessionsListResponse(BaseModel):
+    sessions: List[SessionListItem]
+    total: int
+
+class UpdateSessionRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+
 class VersionDetail(BaseModel):
     id: str
     session_id: str
@@ -179,3 +196,73 @@ async def rollback(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"回滚失败: {str(e)}")
+
+
+@router.get("/sessions", response_model=SessionsListResponse)
+async def list_sessions(
+    skip: int = 0,
+    limit: int = 20,
+    db: SQLSession = Depends(get_db)
+):
+    """获取所有项目列表"""
+    manager = SessionManager(db)
+
+    sessions = manager.get_all_sessions(skip=skip, limit=limit)
+    total = manager.count_sessions()
+
+    return SessionsListResponse(
+        sessions=[
+            SessionListItem(
+                id=s.id,
+                name=s.name or f"项目 {s.id[:8]}",
+                description=s.description,
+                thumbnail_url=s.versions[-1].image_url if s.versions else None,
+                version_count=len(s.versions),
+                created_at=s.created_at.isoformat(),
+                updated_at=s.updated_at.isoformat()
+            )
+            for s in sessions
+        ],
+        total=total
+    )
+
+
+@router.patch("/sessions/{session_id}")
+async def update_session(
+    session_id: str,
+    request: UpdateSessionRequest,
+    db: SQLSession = Depends(get_db)
+):
+    """更新项目元数据"""
+    manager = SessionManager(db)
+
+    try:
+        session = manager.update_session(
+            session_id,
+            name=request.name,
+            description=request.description
+        )
+
+        return {
+            "id": session.id,
+            "name": session.name or "未命名项目",
+            "description": session.description
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.delete("/sessions/{session_id}")
+async def delete_session(
+    session_id: str,
+    db: SQLSession = Depends(get_db)
+):
+    """删除项目"""
+    manager = SessionManager(db)
+    success = manager.delete_session(session_id)
+
+    if not success:
+        raise HTTPException(status_code=404, detail="项目不存在")
+
+    return {"status": "deleted", "session_id": session_id}
+

@@ -8,6 +8,7 @@ import type {
   FeedbackRequest,
   FeedbackResponse,
   Session,
+  SessionListItem,
 } from '@/types'
 
 // 创建 axios 实例
@@ -78,6 +79,27 @@ export const prismApi = {
    */
   async health(): Promise<{ status: string }> {
     return api.get('/health')
+  },
+
+  /**
+   * 获取项目列表
+   */
+  async listSessions(skip = 0, limit = 20): Promise<{ sessions: SessionListItem[]; total: number }> {
+    return api.get('/v1/sessions', { params: { skip, limit } })
+  },
+
+  /**
+   * 更新项目元数据
+   */
+  async updateSession(sessionId: string, data: { name?: string; description?: string }): Promise<any> {
+    return api.patch(`/v1/sessions/${sessionId}`, data)
+  },
+
+  /**
+   * 删除项目
+   */
+  async deleteSession(sessionId: string): Promise<{ status: string; session_id: string }> {
+    return api.delete(`/v1/sessions/${sessionId}`)
   },
 }
 
