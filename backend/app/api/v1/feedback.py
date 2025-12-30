@@ -12,6 +12,7 @@ from app.core.database import get_db
 from app.services.feedback_engine import FeedbackEngine, ConflictError
 from app.services.image_adapter import ImageAdapter
 from app.services.session_manager import SessionManager
+from app.config import settings
 
 router = APIRouter()
 
@@ -32,9 +33,9 @@ async def feedback(
     5. 返回结果
     """
     try:
-        # 初始化服务（阶段1都是Mock）
-        feedback_engine = FeedbackEngine(use_real_api=False)
-        image_adapter = ImageAdapter(use_real_api=False)
+        # 初始化服务（从配置读取 use_real_api）
+        feedback_engine = FeedbackEngine(use_real_api=settings.use_real_api)
+        image_adapter = ImageAdapter(use_real_api=settings.use_real_api)
         session_manager = SessionManager(db)
 
         # 1. 获取当前版本

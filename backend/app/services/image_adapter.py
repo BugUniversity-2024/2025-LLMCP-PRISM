@@ -18,16 +18,22 @@ class ImageAdapter:
             use_real_api: 是否使用真实 Gemini API（阶段 2 设置为 True）
         """
         self.use_real_api = use_real_api
-        if use_real_api:
-            import google.generativeai as genai
-            from app.config import settings
-            genai.configure(api_key=settings.gemini_api_key)
-            self.model = genai.GenerativeModel(settings.gemini_model)
 
         # 存储路径
         from app.config import settings
         self.storage_path = Path(settings.storage_path)
         self.storage_path.mkdir(parents=True, exist_ok=True)
+
+        # 初始化 Gemini 客户端（通过 one-api 中转，使用 OpenAI SDK）
+        if use_real_api:
+            from openai import OpenAI
+
+            # 使用 OpenAI SDK 调用 one-api 中转的 Gemini
+            self.client = OpenAI(
+                api_key=settings.gemini_api_key,
+                base_url=settings.gemini_api_base
+            )
+            self.model = settings.gemini_model
 
     async def generate_image(
         self,
@@ -98,47 +104,42 @@ class ImageAdapter:
         version: int,
         reference_image_path: Optional[str] = None
     ) -> Dict[str, str]:
-        """阶段 2: 真实 Gemini API 调用"""
+        """通过 one-api 调用 Gemini 图片生成（OpenAI 兼容接口）"""
         try:
-            # TODO: 实现 Gemini Flash Image 调用
-            # 注意：需要确认 Gemini 是否支持 text-to-image 和 image-to-image
+            print(f"🔄 调用 Gemini 图片生成 API...")
 
-            # 构建请求
-            content_parts = [prompt]
+            # 使用 OpenAI 图片生成接口格式
+            response = self.client.images.generate(
+                model=self.model,
+                prompt=prompt,
+                n=1,
+                size="1024x1024",  # 可选尺寸：256x256, 512x512, 1024x1024, 1792x1024, 1024x1792
+                response_format="url"  # 或 "b64_json"
+            )
 
-            # 如果有参考图片（迭代场景）
-            if reference_image_path:
-                with open(reference_image_path, "rb") as f:
-                    image_data = f.read()
-                content_parts.append({
-                    "mime_type": "image/png",
-                    "data": image_data
-                })
+            # 获取图片 URL
+            image_url = response.data[0].url
 
-            # 调用 Gemini API
-            response = self.model.generate_content(content_parts)
-
-            # 提取图片（需要确认响应格式）
-            # 假设返回 base64 编码的图片
-            if hasattr(response, 'image_data'):
-                image_data = response.image_data
-            else:
-                raise RuntimeError("Gemini 响应中未找到图片数据")
-
-            # 保存图片
+            # 下载图片到本地
             filename = f"{session_id}-v{version}.png"
             filepath = self.storage_path / filename
 
-            import base64
-            with open(filepath, "wb") as f:
-                f.write(base64.b64decode(image_data))
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                img_response = await client.get(image_url)
+                img_response.raise_for_status()
+
+                with open(filepath, "wb") as f:
+                    f.write(img_response.content)
 
             public_url = f"http://localhost:8000/images/{filename}"
 
+            print(f"✅ Gemini 图片生成成功: {filename}")
             return {
                 "image_url": public_url,
                 "image_path": str(filepath)
             }
 
         except Exception as e:
-            raise RuntimeError(f"Gemini 图片生成失败: {e}")
+            print(f"❌ Gemini 图片生成失败: {e}")
+            print(f"⚠️ 回退到 mock 模式")
+            return await self._generate_mock(session_id, version)

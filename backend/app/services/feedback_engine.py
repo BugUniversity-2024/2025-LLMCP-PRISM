@@ -5,6 +5,8 @@ Feedback Engine - 负责理解反馈并生成 Prompt Diff
 """
 import json
 import copy
+import time
+from pathlib import Path
 from typing import Dict, Any
 
 
@@ -79,6 +81,19 @@ class FeedbackEngine:
                 base_url=settings.openai_api_base  # 支持自定义 Base URL
             )
             self.model = settings.openai_model
+
+            # 加载 System Prompt
+            self.system_prompt = self._load_system_prompt("feedback.txt")
+
+    def _load_system_prompt(self, filename: str) -> str:
+        """从 prompts 目录加载 System Prompt"""
+        prompt_path = Path(__file__).parent.parent / "prompts" / filename
+        try:
+            with open(prompt_path, "r", encoding="utf-8") as f:
+                return f.read()
+        except FileNotFoundError:
+            print(f"⚠️ Prompt 文件未找到：{prompt_path}，使用默认 prompt")
+            return FEEDBACK_SYSTEM_PROMPT
 
     def analyze_feedback(
         self,
@@ -174,43 +189,79 @@ class FeedbackEngine:
         feedback: str,
         current_schema: Dict[str, Any]
     ) -> Dict[str, Any]:
-        """阶段 2: 真实 OpenAI API 调用"""
-        try:
-            user_prompt = f"""当前 Schema:
+        """阶段 2: 真实 OpenAI API 调用（带重试机制）"""
+        max_retries = 3
+        retry_delay = 1  # 秒
+
+        user_prompt = f"""当前 Schema:
 {json.dumps(current_schema, ensure_ascii=False, indent=2)}
 
 用户反馈: {feedback}
 
 请生成 Prompt Diff。"""
 
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": FEEDBACK_SYSTEM_PROMPT},
-                    {"role": "user", "content": user_prompt}
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.5,
-                max_tokens=1000
-            )
+        for attempt in range(max_retries):
+            try:
+                print(f"🔄 调用 OpenAI API 分析反馈 (尝试 {attempt + 1}/{max_retries})...")
 
-            diff = json.loads(response.choices[0].message.content)
-            new_schema = self._apply_diff(current_schema, diff)
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": self.system_prompt},
+                        {"role": "user", "content": user_prompt}
+                    ],
+                    response_format={"type": "json_object"},
+                    temperature=0.5,
+                    max_tokens=1000
+                )
 
-            from app.services.prompt_engine import PromptEngine
-            engine = PromptEngine()
-            prompt = engine._render_prompt(new_schema)
+                diff = json.loads(response.choices[0].message.content)
 
-            return {
-                "diff": diff,
-                "new_schema": new_schema,
-                "prompt": prompt
-            }
+                # 验证 Diff 格式
+                self._validate_diff(diff)
 
-        except json.JSONDecodeError as e:
-            raise RuntimeError(f"Diff 解析失败: {e}")
-        except Exception as e:
-            raise RuntimeError(f"反馈分析失败: {e}")
+                # 应用 Diff
+                new_schema = self._apply_diff(current_schema, diff)
+
+                # 渲染新 Prompt
+                from app.services.prompt_engine import PromptEngine
+                engine = PromptEngine()
+                prompt = engine._render_prompt(new_schema)
+
+                print(f"✅ 反馈分析成功")
+                return {
+                    "diff": diff,
+                    "new_schema": new_schema,
+                    "prompt": prompt
+                }
+
+            except json.JSONDecodeError as e:
+                print(f"⚠️ Diff 解析失败: {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+                    continue
+                else:
+                    print(f"❌ 解析失败，回退到 mock 模式")
+                    return self._analyze_mock(feedback, current_schema)
+
+            except Exception as e:
+                print(f"⚠️ OpenAI API 调用失败: {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # 指数退避
+                    continue
+                else:
+                    print(f"❌ API 调用失败，回退到 mock 模式")
+                    return self._analyze_mock(feedback, current_schema)
+
+    def _validate_diff(self, diff: Dict[str, Any]):
+        """验证 Diff 格式"""
+        if "operations" not in diff:
+            raise ValueError("Diff 缺少 operations 字段")
+        if not isinstance(diff["operations"], list):
+            raise ValueError("operations 必须是数组")
+        if len(diff["operations"]) == 0:
+            raise ValueError("operations 不能为空")
 
     def _apply_diff(
         self,

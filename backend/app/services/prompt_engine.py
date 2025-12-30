@@ -5,6 +5,8 @@ Prompt Engine - 负责生成结构化 Prompt
 """
 import json
 import random
+import time
+from pathlib import Path
 from typing import Dict, Any
 
 
@@ -89,6 +91,20 @@ class PromptEngine:
             )
             self.model = settings.openai_model
 
+        # 加载 System Prompt（如果使用真实 API）
+        if use_real_api:
+            self.system_prompt = self._load_system_prompt("generation.txt")
+
+    def _load_system_prompt(self, filename: str) -> str:
+        """从 prompts 目录加载 System Prompt"""
+        prompt_path = Path(__file__).parent.parent / "prompts" / filename
+        try:
+            with open(prompt_path, "r", encoding="utf-8") as f:
+                return f.read()
+        except FileNotFoundError:
+            print(f"⚠️ Prompt 文件未找到：{prompt_path}，使用默认 prompt")
+            return GENERATION_SYSTEM_PROMPT
+
     def generate_schema(self, user_input: str) -> Dict[str, Any]:
         """
         根据用户输入生成结构化 Schema
@@ -154,31 +170,66 @@ class PromptEngine:
         }
 
     def _generate_with_openai(self, user_input: str) -> Dict[str, Any]:
-        """阶段 2: 真实 OpenAI API 调用"""
-        try:
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": GENERATION_SYSTEM_PROMPT},
-                    {"role": "user", "content": user_input}
-                ],
-                response_format={"type": "json_object"},
-                temperature=0.7,
-                max_tokens=1500
-            )
+        """阶段 2: 真实 OpenAI API 调用（带重试机制）"""
+        max_retries = 3
+        retry_delay = 1  # 秒
 
-            schema_json = json.loads(response.choices[0].message.content)
-            prompt = self._render_prompt(schema_json)
+        for attempt in range(max_retries):
+            try:
+                print(f"🔄 调用 OpenAI API (尝试 {attempt + 1}/{max_retries})...")
 
-            return {
-                "schema": schema_json,
-                "prompt": prompt
-            }
+                response = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=[
+                        {"role": "system", "content": self.system_prompt},
+                        {"role": "user", "content": user_input}
+                    ],
+                    response_format={"type": "json_object"},
+                    temperature=0.7,
+                    max_tokens=1500
+                )
 
-        except json.JSONDecodeError as e:
-            raise RuntimeError(f"Schema 解析失败: {e}")
-        except Exception as e:
-            raise RuntimeError(f"Prompt 生成失败: {e}")
+                schema_json = json.loads(response.choices[0].message.content)
+
+                # 验证 Schema 完整性
+                self._validate_schema(schema_json)
+
+                prompt = self._render_prompt(schema_json)
+
+                print(f"✅ Prompt 生成成功")
+                return {
+                    "schema": schema_json,
+                    "prompt": prompt
+                }
+
+            except json.JSONDecodeError as e:
+                print(f"⚠️ Schema 解析失败: {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+                    continue
+                else:
+                    print(f"❌ 解析失败，回退到 mock 模式")
+                    return self._generate_mock(user_input)
+
+            except Exception as e:
+                print(f"⚠️ OpenAI API 调用失败: {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # 指数退避
+                    continue
+                else:
+                    print(f"❌ API 调用失败，回退到 mock 模式")
+                    return self._generate_mock(user_input)
+
+    def _validate_schema(self, schema: Dict[str, Any]):
+        """验证 Schema 完整性"""
+        required_fields = [
+            "subject", "appearance", "style", "composition",
+            "lighting", "background", "quality", "negative", "weights"
+        ]
+        for field in required_fields:
+            if field not in schema:
+                raise ValueError(f"Schema 缺少必要字段：{field}")
 
     def _render_prompt(self, schema: Dict[str, Any]) -> str:
         """

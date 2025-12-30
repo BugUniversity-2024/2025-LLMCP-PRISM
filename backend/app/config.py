@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     gemini_api_base: str = ""  # 可选，留空则使用默认
     gemini_model: str = "gemini-2.0-flash-exp"
 
+    # API 开关（开发时可设置为 False 使用 mock 数据）
+    use_real_api: bool = False
+
     # 服务配置
     app_env: str = "development"
     debug: bool = True
