@@ -77,9 +77,16 @@ export interface SessionListItem {
 }
 
 // API 请求/响应类型
+export interface PreviewResponse {
+  schema: PromptSchema
+  prompt: string
+}
+
 export interface GenerateRequest {
   user_input: string
   session_id?: string
+  schema?: PromptSchema
+  prompt?: string
 }
 
 export interface GenerateResponse {

@@ -6,8 +6,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session as SQLSession
 
-from app.schemas.requests import GenerateRequest
-from app.schemas.responses import GenerateResponse
+from app.schemas.requests import GenerateRequest, PreviewRequest
+from app.schemas.responses import GenerateResponse, PreviewResponse
 from app.core.database import get_db
 from app.services.prompt_engine import PromptEngine
 from app.services.image_adapter import ImageAdapter
@@ -37,10 +37,16 @@ async def generate(
         image_adapter = ImageAdapter(use_real_api=settings.use_real_api)
         session_manager = SessionManager(db)
 
-        # 1. 生成 Schema
-        result = prompt_engine.generate_schema(request.user_input)
-        schema = result["schema"]
-        prompt = result["prompt"]
+        # 1. 生成或使用已有 Schema
+        if request.schema and request.prompt:
+            # 用户已确认的 Schema（来自 preview）
+            schema = request.schema
+            prompt = request.prompt
+        else:
+            # 重新生成 Schema
+            result = prompt_engine.generate_schema(request.user_input)
+            schema = result["schema"]
+            prompt = result["prompt"]
 
         # 2. 创建或获取 Session
         if request.session_id:
@@ -75,6 +81,34 @@ async def generate(
             prompt=prompt,
             image_url=image_result["image_url"],
             created_at=version.created_at.isoformat()
+        )
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"内部错误: {str(e)}")
+
+
+@router.post("/preview", response_model=PreviewResponse)
+async def preview_prompt(request: PreviewRequest):
+    """
+    预览 Prompt（不生成图片）
+
+    流程：
+    1. 调用 PromptEngine 生成 Schema
+    2. 返回 Schema 和 Prompt（不创建 Session/Version，不生成图片）
+    """
+    try:
+        prompt_engine = PromptEngine(use_real_api=settings.use_real_api)
+
+        # 只生成 Schema，不调用 ImageAdapter
+        result = prompt_engine.generate_schema(request.user_input)
+
+        return PreviewResponse(
+            schema=result["schema"],
+            prompt=result["prompt"]
         )
 
     except ValueError as e:

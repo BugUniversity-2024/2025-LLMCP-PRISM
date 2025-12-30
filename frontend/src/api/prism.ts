@@ -7,6 +7,7 @@ import type {
   GenerateResponse,
   FeedbackRequest,
   FeedbackResponse,
+  PreviewResponse,
   Session,
   SessionListItem,
 } from '@/types'
@@ -14,7 +15,7 @@ import type {
 // 创建 axios 实例
 const api = axios.create({
   baseURL: '/api',
-  timeout: 60000, // 图像生成可能需要较长时间
+  timeout: 180000, // 图像生成可能需要较长时间（3分钟）
   headers: {
     'Content-Type': 'application/json',
   },
@@ -44,6 +45,13 @@ api.interceptors.response.use(
 
 // API 方法
 export const prismApi = {
+  /**
+   * 预览 Prompt（不生成图片）
+   */
+  async preview(userInput: string): Promise<PreviewResponse> {
+    return api.post('/v1/preview', { user_input: userInput })
+  },
+
   /**
    * 生成图片
    */

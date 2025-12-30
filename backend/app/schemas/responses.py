@@ -45,3 +45,9 @@ class FeedbackResponse(BaseModel):
     prompt: str
     image_url: str
     created_at: str
+
+
+class PreviewResponse(BaseModel):
+    """预览 Prompt 响应"""
+    schema: Dict[str, Any]
+    prompt: str

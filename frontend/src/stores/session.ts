@@ -3,7 +3,7 @@
  */
 import { defineStore } from 'pinia'
 import { ref, computed, watch } from 'vue'
-import type { Session, Version, GenerateRequest, FeedbackRequest, SessionListItem } from '@/types'
+import type { Session, Version, GenerateRequest, FeedbackRequest, SessionListItem, PromptSchema } from '@/types'
 import { prismApi } from '@/api/prism'
 
 export const useSessionStore = defineStore('session', () => {
@@ -13,6 +13,10 @@ export const useSessionStore = defineStore('session', () => {
   const recentSessions = ref<SessionListItem[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
+
+  // 预览状态
+  const previewSchema = ref<PromptSchema | null>(null)
+  const previewPrompt = ref<string | null>(null)
 
   // 监听当前会话 ID 变化，自动持久化到 localStorage
   watch(
@@ -37,7 +41,85 @@ export const useSessionStore = defineStore('session', () => {
   // 方法
 
   /**
-   * 生成图片
+   * 预览 Prompt（第一步：不生成图片）
+   */
+  async function previewGenerate(userInput: string) {
+    loading.value = true
+    error.value = null
+
+    try {
+      const response = await prismApi.preview(userInput)
+
+      previewSchema.value = response.schema
+      previewPrompt.value = response.prompt
+
+      return response
+    } catch (err: any) {
+      error.value = err.response?.data?.detail || '预览失败'
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  /**
+   * 确认生成图片（第二步：使用预览的 Schema 生成图片）
+   */
+  async function confirmGenerate(userInput: string) {
+    loading.value = true
+    error.value = null
+
+    try {
+      const request: GenerateRequest = {
+        user_input: userInput,
+        session_id: currentSession.value?.id,
+        schema: previewSchema.value!,
+        prompt: previewPrompt.value!
+      }
+
+      const response = await prismApi.generate(request)
+
+      // 更新会话状态
+      if (!currentSession.value) {
+        currentSession.value = {
+          id: response.session_id,
+          created_at: response.created_at,
+          updated_at: response.created_at,
+          versions: [],
+        }
+      }
+
+      // 添加新版本
+      const newVersion: Version = {
+        id: `${response.session_id}-v${response.version}`,
+        session_id: response.session_id,
+        version_number: response.version,
+        parent_version_id: null,
+        user_input: userInput,
+        schema: response.schema,
+        prompt: response.prompt,
+        image_url: response.image_url,
+        created_at: response.created_at,
+      }
+
+      currentSession.value.versions.push(newVersion)
+      currentVersion.value = newVersion
+
+      // 清空预览状态
+      previewSchema.value = null
+      previewPrompt.value = null
+
+      return response
+    } catch (err: any) {
+      error.value = err.response?.data?.detail || '生成失败'
+      throw err
+    } finally {
+      loading.value = false
+    }
+  }
+
+  /**
+   * 生成图片（原始方法，保留兼容）
    */
   async function generate(userInput: string) {
     loading.value = true
@@ -308,12 +390,18 @@ export const useSessionStore = defineStore('session', () => {
     loading,
     error,
 
+    // 预览状态
+    previewSchema,
+    previewPrompt,
+
     // 计算属性
     hasSession,
     hasVersions,
     latestVersion,
 
     // 方法
+    previewGenerate,
+    confirmGenerate,
     generate,
     submitFeedback,
     switchToVersion,
