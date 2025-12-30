@@ -19,10 +19,10 @@ class Settings(BaseSettings):
     openai_api_base: str = "https://api.openai.com/v1"
     openai_model: str = "gpt-4o"
 
-    # Gemini API 配置
+    # 火山引擎 Seedream API 配置（用于图片生成）
     gemini_api_key: str
     gemini_api_base: str = ""  # 可选，留空则使用默认
-    gemini_model: str = "gemini-2.0-flash-exp"
+    gemini_model: str = "doubao-seedream-4-0-250828"
 
     # API 开关（开发时可设置为 False 使用 mock 数据）
     use_real_api: bool = False

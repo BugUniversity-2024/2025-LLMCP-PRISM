@@ -1,7 +1,7 @@
 """
 Image Adapter - 负责图像生成
 阶段 1: Mock 实现（使用 picsum.photos）
-阶段 2: 接入 Gemini Flash Image API
+阶段 2: 接入火山引擎 Seedream 图片生成 API
 """
 import httpx
 import random
@@ -10,12 +10,16 @@ from typing import Dict, Any, Optional
 
 
 class ImageAdapter:
-    """图像生成适配器（阶段 1: Mock 实现）"""
+    """图像生成适配器
+
+    阶段 1: Mock 实现（使用 picsum.photos）
+    阶段 2: 接入火山引擎 Seedream API
+    """
 
     def __init__(self, use_real_api: bool = False):
         """
         Args:
-            use_real_api: 是否使用真实 Gemini API（阶段 2 设置为 True）
+            use_real_api: 是否使用真实火山引擎 API（阶段 2 设置为 True）
         """
         self.use_real_api = use_real_api
 
@@ -24,11 +28,11 @@ class ImageAdapter:
         self.storage_path = Path(settings.storage_path)
         self.storage_path.mkdir(parents=True, exist_ok=True)
 
-        # 初始化 Gemini 客户端（通过 one-api 中转，使用 OpenAI SDK）
+        # 初始化火山引擎客户端（使用 OpenAI SDK 兼容接口）
         if use_real_api:
             from openai import OpenAI
 
-            # 使用 OpenAI SDK 调用 one-api 中转的 Gemini
+            # 使用 OpenAI SDK 调用火山引擎 Seedream API
             self.client = OpenAI(
                 api_key=settings.gemini_api_key,
                 base_url=settings.gemini_api_base
@@ -104,17 +108,19 @@ class ImageAdapter:
         version: int,
         reference_image_path: Optional[str] = None
     ) -> Dict[str, str]:
-        """通过 one-api 调用 Gemini 图片生成（OpenAI 兼容接口）"""
+        """调用火山引擎 Seedream 图片生成 API（OpenAI SDK 兼容接口）"""
         try:
-            print(f"🔄 调用 Gemini 图片生成 API...")
+            print(f"🔄 调用火山引擎 Seedream 图片生成 API...")
 
             # 使用 OpenAI 图片生成接口格式
             response = self.client.images.generate(
                 model=self.model,
                 prompt=prompt,
-                n=1,
-                size="1024x1024",  # 可选尺寸：256x256, 512x512, 1024x1024, 1792x1024, 1024x1792
-                response_format="url"  # 或 "b64_json"
+                size="2K",  # 火山引擎支持: "2K", "4K" 或像素值如 "2048x2048"
+                response_format="url",  # 返回 URL，或使用 "b64_json" 返回 base64
+                extra_body={
+                    "watermark": False  # 是否添加水印
+                }
             )
 
             # 获取图片 URL
@@ -133,13 +139,13 @@ class ImageAdapter:
 
             public_url = f"http://localhost:8000/images/{filename}"
 
-            print(f"✅ Gemini 图片生成成功: {filename}")
+            print(f"✅ 火山引擎图片生成成功: {filename}")
             return {
                 "image_url": public_url,
                 "image_path": str(filepath)
             }
 
         except Exception as e:
-            print(f"❌ Gemini 图片生成失败: {e}")
+            print(f"❌ 火山引擎图片生成失败: {e}")
             print(f"⚠️ 回退到 mock 模式")
             return await self._generate_mock(session_id, version)

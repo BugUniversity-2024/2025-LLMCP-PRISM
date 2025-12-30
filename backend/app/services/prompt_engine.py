@@ -11,65 +11,77 @@ from typing import Dict, Any
 
 
 # System Prompt 模板（阶段 2 使用）
-GENERATION_SYSTEM_PROMPT = """你是一个专业的 AI 绘画 Prompt 生成器，擅长将用户的简单描述转换为详细、结构化的绘画指令。
+GENERATION_SYSTEM_PROMPT = """你是一个专业的 AI 绘画 Prompt 生成器，专门为火山引擎 Seedream 模型优化提示词。
+
+【核心要求】
+- 生成简洁连贯的自然语言描述
+- 遵循结构：主体 + 行为 + 环境 + 美学元素
+- 使用中文描述，每个元素用短语表达
+- 避免冗长句子，保持描述精炼
+- 控制总字数合理，避免信息过载
 
 【输出格式】
 你必须输出 JSON 格式，包含以下字段：
 {
-  "subject": ["主体描述"],
-  "appearance": ["外观细节"],
-  "style": ["画风风格"],
-  "composition": ["构图方式"],
-  "lighting": ["光照描述"],
-  "background": ["背景描述"],
-  "quality": ["质量要求"],
-  "negative": ["负面提示"],
+  "subject": ["主体", "动作或姿态"],
+  "appearance": ["外观特征1", "外观特征2"],
+  "style": ["画风", "艺术风格"],
+  "composition": ["构图", "视角"],
+  "lighting": ["光照", "色调"],
+  "background": ["背景", "环境"],
+  "quality": ["画质", "分辨率"],
+  "negative": ["避免元素1", "避免元素2"],
   "weights": {"style": 1.0, "realism": 0.7}
 }
 
-【生成规则】
-1. 根据用户输入填充所有字段，保证完整性
-2. 使用专业绘画术语（如：rim light、bokeh、cinematic composition、soft cel-shading）
-3. 避免冲突（不能同时要求 realistic 和 cartoon）
-4. 使用中文描述，适配图像生成模型
-5. 如果用户输入简单，合理补充细节（但不偏离主题）
+【字段说明】
+- subject: 主体及动作（用2-3个短语描述核心主体）
+- appearance: 外观细节（2-4个关键视觉特征）
+- style: 画风风格（如：半写实、动漫风、电影感）
+- composition: 构图视角（如：特写、俯视、三分法）
+- lighting: 光照色调（如：柔光、暖色调、逆光）
+- background: 背景环境（简洁描述，2-3个元素）
+- quality: 画质要求（如：高清、细节丰富、2K）
+- negative: 负面提示（常见质量问题）
+- weights: 权重（style: 风格强度, realism: 写实度，范围 0.1-1.5）
 
-【参考案例】
-案例1（秋日草地三人场景）：
-用户输入："三个人躺在草地上看落叶"
-Schema 输出：
+【参考案例 1】
+用户输入："一只橘猫在窗边晒太阳"
+输出：
 {
-  "subject": ["三位角色", "头对头躺在草地"],
-  "appearance": ["面部清晰", "服装自然", "头发随风散开"],
-  "style": ["二次元半写实", "明显线条感", "真实光影"],
-  "composition": ["俯拍70度", "圆形构图", "头部居中"],
-  "lighting": ["温暖午后光", "侧逆光", "柔和高光"],
-  "background": ["秋天草地", "黄绿褐色", "落叶飘落"],
-  "quality": ["16:9", "1920x1080", "高清细腻"],
-  "negative": ["模糊", "变形", "过度扁平"],
+  "subject": ["橘猫", "慵懒趴着"],
+  "appearance": ["橘色短毛", "绿色眼睛", "蓬松尾巴"],
+  "style": ["半写实风格", "温暖色调"],
+  "composition": ["特写镜头", "浅景深"],
+  "lighting": ["温暖午后阳光", "柔和侧光"],
+  "background": ["木质窗台", "窗外树影"],
+  "quality": ["高清", "细节丰富"],
+  "negative": ["模糊", "变形", "多余肢体"],
   "weights": {"style": 1.0, "realism": 0.8}
 }
 
-案例2（站台场景）：
-用户输入："一个人坐在地铁站台边缘，雾气弥漫"
-Schema 输出：
+【参考案例 2】
+用户输入："科幻城市夜景"
+输出：
 {
-  "subject": ["一位角色坐在站台边缘"],
-  "appearance": ["动漫线条", "柔和上色", "沉静表情"],
-  "style": ["电影感", "半写实背景", "动漫角色"],
-  "composition": ["平视", "中距离", "对面视角"],
-  "lighting": ["清晨淡金蓝混合", "体积雾", "柔光"],
-  "background": ["地铁站台", "轻微雾气", "轨道延伸"],
-  "quality": ["16:9", "高清", "浅景深"],
-  "negative": ["拥挤", "科幻UI", "夸张比例"],
-  "weights": {"style": 1.0, "realism": 0.6}
+  "subject": ["未来城市", "高耸摩天大楼"],
+  "appearance": ["玻璃幕墙", "霓虹灯光", "飞行器"],
+  "style": ["赛博朋克", "科幻感"],
+  "composition": ["广角", "仰视"],
+  "lighting": ["霓虹冷光", "紫蓝色调", "光线追踪"],
+  "background": ["夜空", "繁星", "光污染"],
+  "quality": ["4K", "电影级"],
+  "negative": ["模糊", "低清", "噪点"],
+  "weights": {"style": 1.3, "realism": 0.6}
 }
 
-【重要提示】
-- 保持所有描述为中文
-- 确保 JSON 格式正确
-- 每个数组至少有1-3个元素
-- weights 的值在 0.1-1.5 之间
+【生成规则】
+1. 每个数组提供 2-4 个简短元素（避免单个元素过长）
+2. 使用专业绘画术语和视觉描述
+3. 优先描述视觉可见的元素
+4. 避免抽象概念，聚焦具体画面
+5. negative 列出常见质量问题
+6. 确保 JSON 格式正确
 """
 
 
@@ -234,42 +246,52 @@ class PromptEngine:
     def _render_prompt(self, schema: Dict[str, Any]) -> str:
         """
         将 Schema 渲染为自然语言 Prompt
+
+        遵循火山引擎推荐风格：
+        - 简洁连贯的自然语言描述
+        - 主体 + 行为 + 环境 + 美学元素
+        - 控制在 300 字以内
         """
         parts = []
 
-        # 1. 画面比例和质量
-        if schema.get("quality"):
-            parts.append(f"画面比例：16:9，{', '.join(schema['quality'])}")
-
-        # 2. 风格要求
-        if schema.get("style"):
-            parts.append(f"风格要求：{', '.join(schema['style'])}")
-
-        # 3. 主体场景与构图
-        parts.append("\n【主体场景与构图】")
+        # 1. 主体场景（核心）
+        subject_parts = []
         if schema.get("subject"):
-            parts.append(f"主体：{', '.join(schema['subject'])}")
-        if schema.get("composition"):
-            parts.append(f"构图：{', '.join(schema['composition'])}")
-
-        # 4. 外观细节
+            subject_parts.extend(schema["subject"])
         if schema.get("appearance"):
-            parts.append("\n【外观细节】")
-            parts.append(', '.join(schema['appearance']))
+            subject_parts.extend(schema["appearance"])
 
-        # 5. 光照与氛围
+        if subject_parts:
+            parts.append('，'.join(subject_parts))
+
+        # 2. 构图与视角
+        if schema.get("composition"):
+            parts.append('，'.join(schema["composition"]))
+
+        # 3. 光照与氛围
         if schema.get("lighting"):
-            parts.append("\n【光照与氛围】")
-            parts.append(', '.join(schema['lighting']))
+            parts.append('，'.join(schema["lighting"]))
 
-        # 6. 背景
+        # 4. 背景环境
         if schema.get("background"):
-            parts.append("\n【背景】")
-            parts.append(', '.join(schema['background']))
+            parts.append('，'.join(schema["background"]))
 
-        # 7. 负面提示
+        # 5. 风格与质量
+        style_parts = []
+        if schema.get("style"):
+            style_parts.extend(schema["style"])
+        if schema.get("quality"):
+            style_parts.extend(schema["quality"])
+
+        if style_parts:
+            parts.append('，'.join(style_parts))
+
+        # 主要描述（自然流畅的句子）
+        main_prompt = '，'.join(parts)
+
+        # 负面提示（单独一行，保持清晰）
+        negative_prompt = ""
         if schema.get("negative"):
-            parts.append("\n【负向提示（避免）】")
-            parts.append(', '.join(schema['negative']))
+            negative_prompt = f"\n负面提示：{', '.join(schema['negative'])}"
 
-        return '\n'.join(parts)
+        return main_prompt + negative_prompt
