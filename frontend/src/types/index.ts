@@ -99,7 +99,6 @@ export interface GenerateResponse {
 }
 
 export interface FeedbackRequest {
-  session_id: string
   version: number
   feedback: string
 }

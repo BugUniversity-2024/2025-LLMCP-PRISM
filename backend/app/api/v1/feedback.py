@@ -17,8 +17,9 @@ from app.config import settings
 router = APIRouter()
 
 
-@router.post("/feedback", response_model=FeedbackResponse)
+@router.post("/sessions/{session_id}/feedback", response_model=FeedbackResponse)
 async def feedback(
+    session_id: str,
     request: FeedbackRequest,
     db: SQLSession = Depends(get_db)
 ):
@@ -40,7 +41,7 @@ async def feedback(
 
         # 1. 获取当前版本
         current_version = session_manager.get_version(
-            session_id=request.session_id,
+            session_id=session_id,
             version_number=request.version
         )
         if not current_version:
@@ -60,14 +61,14 @@ async def feedback(
         next_version_number = current_version.version_number + 1
         image_result = await image_adapter.generate_image(
             prompt=prompt,
-            session_id=request.session_id,
+            session_id=session_id,
             version=next_version_number,
             reference_image_path=current_version.image_path
         )
 
         # 4. 存储新版本
         new_version = session_manager.create_version(
-            session_id=request.session_id,
+            session_id=session_id,
             schema=new_schema,
             prompt=prompt,
             image_url=image_result["image_url"],
@@ -79,7 +80,7 @@ async def feedback(
 
         # 5. 返回响应
         return FeedbackResponse(
-            session_id=request.session_id,
+            session_id=session_id,
             version=new_version.version_number,
             parent_version=request.version,
             diff=diff,

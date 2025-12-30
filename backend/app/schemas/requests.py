@@ -20,6 +20,5 @@ class GenerateRequest(BaseModel):
 
 class FeedbackRequest(BaseModel):
     """反馈优化请求"""
-    session_id: str = Field(..., description="会话 ID")
     version: int = Field(..., description="当前版本号")
     feedback: str = Field(..., description="用户反馈")

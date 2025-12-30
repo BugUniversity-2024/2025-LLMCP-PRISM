@@ -181,13 +181,25 @@ export const useSessionStore = defineStore('session', () => {
     error.value = null
 
     try {
+      // 从 currentVersion 或 currentSession 获取 session_id
+      const sessionId = currentVersion.value.session_id || currentSession.value.id
+
+      if (!sessionId) {
+        console.error('Session state:', {
+          currentSession: currentSession.value,
+          currentVersion: currentVersion.value,
+        })
+        throw new Error('无法获取 session_id，请刷新页面重试')
+      }
+
       const request: FeedbackRequest = {
-        session_id: currentSession.value.id,
         version: currentVersion.value.version_number,
         feedback,
       }
 
-      const response = await prismApi.feedback(request)
+      console.log('Submitting feedback:', { sessionId, request })
+
+      const response = await prismApi.feedback(sessionId, request)
 
       // 添加新版本
       const newVersion: Version = {

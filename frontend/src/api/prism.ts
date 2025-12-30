@@ -62,8 +62,8 @@ export const prismApi = {
   /**
    * 提交反馈并迭代
    */
-  async feedback(data: FeedbackRequest): Promise<FeedbackResponse> {
-    return api.post('/v1/feedback', data)
+  async feedback(sessionId: string, data: FeedbackRequest): Promise<FeedbackResponse> {
+    return api.post(`/v1/sessions/${sessionId}/feedback`, data)
   },
 
   /**
