@@ -33,7 +33,7 @@ async function handleFeedback() {
 <template>
   <div class="space-y-4">
     <!-- 创意输入 -->
-    <div class="card p-5 animate-scale-in">
+    <div v-if="!hasImage" class="card p-5 animate-scale-in">
       <div class="flex items-center gap-2 mb-3">
         <SparklesIcon class="w-4 h-4 text-sky-500" />
         <label class="text-sm font-semibold text-slate-800">创意输入</label>
