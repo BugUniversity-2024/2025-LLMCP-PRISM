@@ -89,7 +89,8 @@ class ImageAdapter:
                     f.write(response.content)
 
             # 构建公开 URL
-            public_url = f"http://localhost:8000/images/{filename}"
+            from app.config import settings
+            public_url = f"{settings.public_base_url}/images/{filename}"
 
             return {
                 "image_url": public_url,
@@ -137,7 +138,8 @@ class ImageAdapter:
                 with open(filepath, "wb") as f:
                     f.write(img_response.content)
 
-            public_url = f"http://localhost:8000/images/{filename}"
+            from app.config import settings
+            public_url = f"{settings.public_base_url}/images/{filename}"
 
             print(f"✅ 火山引擎图片生成成功: {filename}")
             return {

@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     host: str = "0.0.0.0"
     port: int = 8000
 
+    # 公开访问地址（用于生成图片URL）
+    # 格式：http://your-server-ip:port 或 https://your-domain.com
+    public_base_url: str = "http://localhost:8000"
+
     # 图片存储
     storage_path: str = "../storage/images"
 
