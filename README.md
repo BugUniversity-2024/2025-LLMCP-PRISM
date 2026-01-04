@@ -3,6 +3,8 @@
 > **Prompt Refinement & Image Synthesis Manager**
 >
 > 基于 LLM 的 AI 绘画 Prompt 优化中间层
+>
+> **仓库地址**：https://github.com/BugUniversity-2024/2025-LLMCP-PRISM
 
 ## 项目简介
 
@@ -173,8 +175,11 @@ prism/
 
 ## 团队
 
-- AptS:1547
-- AptS:1548
+- 1547
+- 1548
+- 1738
+- 2275
+- 1543
 
 ## License
 
